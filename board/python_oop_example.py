@@ -6,7 +6,10 @@ import pygame
 import sys
 import os
 
-import board_map
+_TOP_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(_TOP_DIR)
+
+from board import board_map, palette
 
 ani = 4   # animation cycles
 
@@ -16,7 +19,7 @@ STARTING_MONEY = 10
 PLAYER_PAWNS = 16
 STARTING_FOOD = 16
 
-RES = "C:/Users/bfallon/Desktop/oop_example/res"
+RES = os.path.join(_TOP_DIR,"res")
 
 class Game(object):
     """
@@ -196,12 +199,43 @@ class PlayerTest(pygame.sprite.Sprite):
             self.image = self.images[self.frame//ani]
 
 
-class CursorIcon():
+class PointerIcon(object):
     '''
     The image that follows the cursor. There is also the system cursor drawn at click hotspot.
     '''
     def __init__(self):
-        self.image = pygame.image.load(s.path.join(RES,"cursors",'glove1.png')
+        # strings = (
+        #     ".XXXXXX ",
+        #     "X.....  ",
+        #     "X....   ",
+        #     "X..     ",
+        #     "X..     ",
+        #     "X.      ",
+        #     "X       ",
+        #     "        ",
+        #     )
+        strings = (" "*8,)*8
+
+        cursor, mask = pygame.cursors.compile(strings, 'X', '.', 'o')
+        size = len(strings[0]), len(strings)
+        hotspot = (0,0)
+        pygame.mouse.set_cursor(size, hotspot, cursor, mask)
+
+        unscaled_image = pygame.image.load(os.path.join(RES,"cursors",'glove1.png'))
+        #self.image = pygame.transform.scale(unscaled_image, (48,48))
+        self.image = unscaled_image
+        self.xy = (0, 0)
+
+    def update(self, the_map):
+        cursor_xy = pygame.mouse.get_pos() 
+        if cursor_xy != self.xy:
+            self.xy = cursor_xy
+            the_map.update_cursor()
+
+    def draw(self, screen):
+        screen.blit(self.image, self.xy)
+
+
 
 def main():
     '''
@@ -214,17 +248,9 @@ def main():
     clock = pygame.time.Clock()
     pygame.init()
 
-    # Color theme pallette
-    WHITE = (254,254,254)
-    BLACK = (0, 0, 0)
-    BROWN = (230, 204, 179)
-    BLUE  = (50,80,200)
-    GREEN = (191, 255, 128)
-    GREY  = (194, 194, 214)
-
-    DIRT = board_map.Land("dirt", BROWN)
-    GRAS = board_map.Land("grass", GREEN)
-    MNTN = board_map.Land("mountain", GREY)
+    DIRT = board_map.Land("dirt", palette.BROWN)
+    GRAS = board_map.Land("grass", palette.GREEN)
+    MNTN = board_map.Land("mountain", palette.GREY)
 
     no_mtn_a  = [DIRT, DIRT, GRAS, GRAS, GRAS, DIRT, DIRT, DIRT, DIRT, DIRT]
     no_mtn_b  = [DIRT, DIRT, DIRT, DIRT, DIRT, DIRT, DIRT, GRAS, GRAS, GRAS]
@@ -235,15 +261,15 @@ def main():
         no_mtn_a + one_mtn,
         no_mtn_a + no_mtn_b,
         no_mtn_b + one_mtn,
-    ]*4
+    ]*3
 
     my_map = map_40x40
 
-    import pprint
-    pp = pprint.PrettyPrinter(indent=4)
-    pp.pprint(my_map)
+    # import pprint
+    # pp = pprint.PrettyPrinter(indent=4)
+    # pp.pprint(my_map)
 
-    the_map = board_map.BoardMap("Test map", my_map, BLACK)
+    the_map = board_map.BoardMap("Test map", my_map, palette.BLACK)
 
 
     screen = pygame.display.set_mode([worldx,worldy])
@@ -257,8 +283,7 @@ def main():
     steps = 10      # how fast to move
 
     # Cursor init
-    pygame.mouse.set_cursor(*pygame.cursors.broken_x)
-    cursor_xy = None
+    pointer = PointerIcon()
 
     '''
     Main loop
@@ -275,8 +300,6 @@ def main():
                     player.control(-steps,0)
                 if event.key == pygame.K_RIGHT or event.key == ord('d'):
                     player.control(steps,0)
-                if event.key == pygame.K_UP or event.key == ord('w'):
-                    print('jump')
 
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT or event.key == ord('a'):
@@ -287,18 +310,15 @@ def main():
                     pygame.quit()
                     sys.exit()
                     looping = False
-
-        new_xy = pygame.mouse.get_pos() 
-        if new_xy != cursor_xy:
-            cursor_xy = new_xy
-            print(cursor_xy)
-            cursor_icon
+            
+        pointer.update(the_map)
 
     #    screen.fill(BLACK)
         screen.blit(backdrop, backdropbox)
         the_map.draw(screen)
         player.update()
         player_list.draw(screen) #refresh player position
+        pointer.draw(screen)
         pygame.display.flip()
         clock.tick(fps)
 
